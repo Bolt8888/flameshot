@@ -31,13 +31,12 @@ QPixmap knockOutSolidBackground(const QPixmap& source)
     masked.setMask(masked.createMaskFromColor(bg, Qt::MaskInColor));
     return masked;
 }
-}  // namespace
+} // namespace
 
 IconStore::IconStore()
 {
-    m_directory =
-      QCoreApplication::applicationDirPath() + QDir::separator() +
-      QStringLiteral("custom_icons");
+    const QString base = QCoreApplication::applicationDirPath();
+    m_directory = base + QDir::separator() + QStringLiteral("custom_icons");
     // QCache cost unit is bytes here, keep roughly 8 MB of decoded icons.
     m_cache.setMaxCost(CACHE_LIMIT_KB * 1024);
 }

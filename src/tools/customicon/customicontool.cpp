@@ -28,8 +28,11 @@ QIcon CustomIconTool::icon(const QColor& background, bool inEditor) const
 
 QString CustomIconTool::info()
 {
-    m_tempString =
-      m_iconName.isEmpty() ? name() : QString("%1 - %2").arg(name(), m_iconName);
+    if (m_iconName.isEmpty()) {
+        m_tempString = name();
+    } else {
+        m_tempString = QStringLiteral("%1 - %2").arg(name(), m_iconName);
+    }
     return m_tempString;
 }
 

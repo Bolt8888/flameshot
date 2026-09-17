@@ -79,10 +79,9 @@ void CustomIconConfig::rebuildGrid()
         button->setToolTip(name);
         button->setCheckable(true);
         button->setChecked(name == m_currentIcon);
-        connect(button,
-                &QToolButton::clicked,
-                this,
-                [this, name]() { selectIcon(name); });
+        connect(button, &QToolButton::clicked, this, [this, name]() {
+            selectIcon(name);
+        });
         m_grid->addWidget(button, i / GRID_COLUMNS, i % GRID_COLUMNS);
     }
 }
