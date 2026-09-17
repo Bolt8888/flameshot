@@ -68,8 +68,12 @@ void CustomIconConfig::rebuildGrid()
 
     for (int i = 0; i < icons.size(); ++i) {
         const QString name = icons.at(i);
+        QPixmap preview = IconStore::instance().pixmap(name, PREVIEW_SIZE);
+        if (preview.isNull()) {
+            continue;
+        }
         auto* button = new QToolButton();
-        button->setIcon(QIcon(IconStore::instance().pixmap(name, PREVIEW_SIZE)));
+        button->setIcon(QIcon(preview));
         button->setIconSize(QSize(PREVIEW_SIZE, PREVIEW_SIZE));
         button->setToolTip(name);
         button->setCheckable(true);

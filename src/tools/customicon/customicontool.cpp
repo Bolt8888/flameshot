@@ -165,10 +165,10 @@ void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
         painter.drawPath(path);
     }
 
-    painter.drawPixmap(points().first.x() - half,
-                       points().first.y() - half,
-                       icon_size,
-                       icon_size,
+    // Keep the pixmap aspect ratio and center it on the anchor point, wide
+    // stickers must not be stretched into a square.
+    painter.drawPixmap(points().first.x() - iconPixmap.width() / 2,
+                       points().first.y() - iconPixmap.height() / 2,
                        iconPixmap);
 
     // restore original brush and pen

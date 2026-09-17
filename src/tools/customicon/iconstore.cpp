@@ -10,7 +10,25 @@
 
 namespace {
 const int CACHE_LIMIT_KB = 8192;
+
+// Most user supplied stickers are solid background bitmaps without an alpha
+// channel. Knocking out the corner color keeps them usable on screenshots.
+QPixmap knockOutSolidBackground(const QPixmap& source)
+{
+    QImage img = source.toImage();
+    if (img.isNull() || !img.rect().contains(0, 0)) {
+        return source;
+    }
+    const QColor bg = img.pixelColor(0, 0);
+    if (bg.alpha() == 0) {
+        return source;
+    }
+    QPixmap masked;
+    masked.convertFromImage(img);
+    masked.setMask(masked.createMaskFromColor(bg, Qt::MaskInColor));
+    return masked;
 }
+}  // namespace
 
 IconStore::IconStore()
 {
@@ -90,6 +108,9 @@ QPixmap IconStore::loadPixmap(const QString& path, int size) const
     QPixmap source(path);
     if (source.isNull()) {
         return {};
+    }
+    if (!source.hasAlphaChannel()) {
+        source = knockOutSolidBackground(source);
     }
     return source.scaled(
       size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
