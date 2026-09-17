@@ -118,6 +118,7 @@ private:
     void uncheckActiveTool();
     int selectToolItemAtPos(const QPoint& pos);
     void showColorPicker(const QPoint& pos);
+    bool showNumberPicker(const QPoint& pos);
     bool startDrawObjectTool(const QPoint& pos);
     QPointer<CaptureTool> activeToolObject();
     void initContext(bool fullscreen, const CaptureRequest& req);

@@ -15,6 +15,7 @@
 #include "core/flameshot.h"
 #include "core/qguiappcurrentscreen.h"
 #include "tools/copy/copytool.h"
+#include "tools/customnumber/customnumbertool.h"
 #include "utils/abstractlogger.h"
 #include "utils/screengrabber.h"
 #include "utils/screenshotsaver.h"
@@ -32,11 +33,16 @@
 #include <QCheckBox>
 #include <QDateTime>
 #include <QFontMetrics>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPaintEvent>
 #include <QPainter>
+#include <QPushButton>
 #include <QScreen>
 #include <QShortcut>
+#include <QVBoxLayout>
 #include <QWindow>
 
 #if !defined(DISABLE_UPDATE_CHECKER)
@@ -810,6 +816,77 @@ void CaptureWidget::showColorPicker(const QPoint& pos)
     m_colorPicker->show();
 }
 
+// Right clicking a custom number pops a small panel with the numbers 1 to 10
+// plus a free input, the same way the color picker is opened.
+bool CaptureWidget::showNumberPicker(const QPoint& pos)
+{
+    QPointer<CaptureTool> toolItem = activeToolObject();
+    if (toolItem.isNull() || !toolItem->boundingRect().contains(pos)) {
+        selectToolItemAtPos(pos);
+        toolItem = activeToolObject();
+    }
+    if (toolItem.isNull() ||
+        toolItem->type() != CaptureTool::TYPE_CUSTOMNUMBER ||
+        !toolItem->boundingRect().contains(pos)) {
+        return false;
+    }
+
+    const int columns = 5;
+    const int count = 10;
+    auto apply = [this, toolItem](const QString& text) {
+        if (toolItem.isNull() || text.isEmpty()) {
+            return;
+        }
+        auto* numberTool = qobject_cast<CustomNumberTool*>(toolItem.data());
+        if (numberTool == nullptr || numberTool->label() == text) {
+            return;
+        }
+        // snapshot before the edit so the change lands on the undo stack
+        m_captureToolObjectsBackup = m_captureToolObjects;
+        numberTool->setLabel(text);
+        pushObjectsStateToUndoStack();
+        drawToolsData();
+        updateLayersPanel();
+    };
+
+    auto* popup = new QWidget(this, Qt::Popup);
+    popup->setAttribute(Qt::WA_DeleteOnClose);
+    auto* layout = new QVBoxLayout(popup);
+    auto* grid = new QGridLayout();
+    for (int i = 1; i <= count; ++i) {
+        auto* button = new QPushButton(QString::number(i), popup);
+        button->setFixedWidth(32);
+        connect(button, &QPushButton::clicked, popup, [apply, popup, i]() {
+            apply(QString::number(i));
+            popup->close();
+        });
+        grid->addWidget(button, (i - 1) / columns, (i - 1) % columns);
+    }
+    layout->addLayout(grid);
+
+    auto* row = new QHBoxLayout();
+    auto* edit = new QLineEdit(popup);
+    edit->setMaxLength(8);
+    edit->setPlaceholderText(tr("Other"));
+    edit->setToolTip(tr("Type any label and press Enter"));
+    auto* okButton = new QPushButton(tr("OK"), popup);
+    row->addWidget(edit);
+    row->addWidget(okButton);
+    layout->addLayout(row);
+
+    auto commit = [apply, popup, edit]() {
+        apply(edit->text().trimmed());
+        popup->close();
+    };
+    connect(okButton, &QPushButton::clicked, popup, commit);
+    connect(edit, &QLineEdit::returnPressed, popup, commit);
+
+    popup->move(mapToGlobal(pos));
+    popup->show();
+    edit->setFocus();
+    return true;
+}
+
 bool CaptureWidget::startDrawObjectTool(const QPoint& pos)
 {
     if (activeButtonToolType() != CaptureTool::NONE &&
@@ -895,6 +972,9 @@ void CaptureWidget::mousePressEvent(QMouseEvent* e)
         if (m_activeTool && m_activeTool->editMode()) {
             return;
         }
+        if (showNumberPicker(m_mousePressedPos)) {
+            return;
+        }
         showColorPicker(m_mousePressedPos);
         return;
     } else if (e->button() == Qt::LeftButton) {
@@ -927,7 +1007,9 @@ void CaptureWidget::mouseDoubleClickEvent(QMouseEvent* event)
     if (activeLayerIndex != -1) {
         // Start object editing
         auto activeTool = m_captureToolObjects.at(activeLayerIndex);
-        if (activeTool && activeTool->type() == CaptureTool::TYPE_TEXT) {
+        if (activeTool &&
+            (activeTool->type() == CaptureTool::TYPE_TEXT ||
+             activeTool->type() == CaptureTool::TYPE_CUSTOMNUMBER)) {
             m_activeTool = activeTool;
             m_mouseIsClicked = false;
             m_context.mousePos = *m_activeTool->pos();

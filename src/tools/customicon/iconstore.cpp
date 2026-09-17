@@ -10,6 +10,11 @@
 #include <QFileInfo>
 #include <QIcon>
 #include <QImage>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
+
+#include <algorithm>
+#include <limits>
 
 namespace {
 const int CACHE_LIMIT_KB = 8192;
@@ -30,6 +35,33 @@ QPixmap knockOutSolidBackground(const QPixmap& source)
     masked.convertFromImage(img);
     masked.setMask(masked.createMaskFromColor(bg, Qt::MaskInColor));
     return masked;
+}
+
+// Group folders may carry a numeric prefix such as "03_moving" so the user
+// can pin the order of the tabs. The prefix is hidden when the tab is drawn.
+struct GroupKey
+{
+    QString name;
+    int order;
+    QString text;
+};
+
+GroupKey parseGroupName(const QString& name)
+{
+    static const QRegularExpression re(QStringLiteral("^(\\d+)[-_. ](.+)$"));
+    const QRegularExpressionMatch match = re.match(name);
+    if (match.hasMatch()) {
+        return { name, match.captured(1).toInt(), match.captured(2) };
+    }
+    return { name, std::numeric_limits<int>::max(), name };
+}
+
+bool groupLessThan(const GroupKey& a, const GroupKey& b)
+{
+    if (a.order != b.order) {
+        return a.order < b.order;
+    }
+    return a.text.compare(b.text, Qt::CaseInsensitive) < 0;
 }
 } // namespace
 
@@ -52,19 +84,67 @@ QString IconStore::directory() const
     return m_directory;
 }
 
-QStringList IconStore::availableIcons() const
+QStringList IconStore::availableGroups() const
 {
     QDir dir(m_directory);
     if (!dir.exists()) {
+        return {};
+    }
+    const QStringList subDirs =
+      dir.entryList(QDir::Dirs | QDir::Readable | QDir::NoDotAndDotDot,
+                    QDir::Name | QDir::IgnoreCase);
+
+    QList<GroupKey> keys;
+    keys.reserve(subDirs.size());
+    for (const QString& subDir : subDirs) {
+        keys.append(parseGroupName(subDir));
+    }
+    std::sort(keys.begin(), keys.end(), groupLessThan);
+
+    QStringList groups;
+    groups.reserve(keys.size() + 1);
+    for (const GroupKey& key : keys) {
+        groups.append(key.name);
+    }
+    // Files dropped straight into "custom_icons" end up in the last tab.
+    if (!availableIcons(QString()).isEmpty()) {
+        groups.append(QString());
+    }
+    return groups;
+}
+
+QStringList IconStore::availableIcons(const QString& group) const
+{
+    QDir dir(m_directory);
+    if (!dir.exists()) {
+        return {};
+    }
+    if (!group.isEmpty() && !dir.cd(group)) {
         return {};
     }
     QStringList filters;
     filters << QStringLiteral("*.png") << QStringLiteral("*.jpg")
             << QStringLiteral("*.jpeg") << QStringLiteral("*.svg")
             << QStringLiteral("*.bmp");
-    QStringList files = dir.entryList(
+    const QStringList files = dir.entryList(
       filters, QDir::Files | QDir::Readable, QDir::Name | QDir::IgnoreCase);
-    return files;
+    if (group.isEmpty()) {
+        return files;
+    }
+    QStringList result;
+    result.reserve(files.size());
+    for (const QString& file : files) {
+        result.append(group + QStringLiteral("/") + file);
+    }
+    return result;
+}
+
+QString IconStore::groupLabel(const QString& group)
+{
+    if (group.isEmpty()) {
+        return QCoreApplication::translate("IconStore", "Ungrouped");
+    }
+    return parseGroupName(group).text;
 }
 
 QString IconStore::iconPath(const QString& name) const

@@ -5,9 +5,9 @@
 
 #include <QWidget>
 
-class QGridLayout;
 class QCheckBox;
 class QPushButton;
+class QTabWidget;
 class QVBoxLayout;
 
 class CustomIconConfig : public QWidget
@@ -28,10 +28,11 @@ private slots:
     void selectIcon(const QString& iconName);
 
 private:
-    void rebuildGrid();
+    void rebuildTabs();
+    QWidget* createGroupPage(const QString& group, QWidget* parent);
 
     QVBoxLayout* m_layout;
-    QGridLayout* m_grid;
+    QTabWidget* m_tabs;
     QCheckBox* m_leaderLineCB;
     QPushButton* m_refreshButton;
     QString m_currentIcon;
