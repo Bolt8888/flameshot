@@ -3,10 +3,13 @@
 
 #include "iconstore.h"
 
+#include <QBitmap>
+#include <QColor>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
-#include <QPainter>
+#include <QIcon>
+#include <QImage>
 
 namespace {
 const int CACHE_LIMIT_KB = 8192;

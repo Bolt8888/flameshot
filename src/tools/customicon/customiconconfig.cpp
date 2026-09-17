@@ -6,6 +6,7 @@
 
 #include <QCheckBox>
 #include <QGridLayout>
+#include <QIcon>
 #include <QLabel>
 #include <QLayoutItem>
 #include <QPixmap>
