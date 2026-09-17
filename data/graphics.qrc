@@ -46,6 +46,8 @@
         <file>img/material/black/text.svg</file>
         <file>img/material/black/undo-variant.svg</file>
         <file>img/material/black/circlecount-outline.svg</file>
+        <file>img/material/black/customnumber-outline.svg</file>
+        <file>img/material/black/customicon-outline.svg</file>
         <file>img/material/black/filepath.svg</file>
         <file>img/material/black/invert.svg</file>
         <file>img/material/black/minus.svg</file>
@@ -56,6 +58,8 @@
         <file>img/material/white/centeralign.svg</file>
         <file>img/material/white/circle-outline.svg</file>
         <file>img/material/white/circlecount-outline.svg</file>
+        <file>img/material/white/customnumber-outline.svg</file>
+        <file>img/material/white/customicon-outline.svg</file>
         <file>img/material/white/close.svg</file>
         <file>img/material/white/cloud-upload.svg</file>
         <file>img/material/white/colorize.svg</file>
