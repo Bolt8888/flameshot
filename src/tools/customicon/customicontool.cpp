@@ -176,7 +176,9 @@ void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
         painter.drawLine(trimmed);
         painter.setPen(Qt::NoPen);
         painter.setBrush(color());
-        painter.drawEllipse(points().second, 2.0, 2.0);
+        // Integer arguments on purpose: QPoint doubles for two different
+        // drawEllipse overloads and the call is ambiguous otherwise.
+        painter.drawEllipse(points().second, 2, 2);
     }
 
     // Keep the pixmap aspect ratio and center it on the anchor point, wide
