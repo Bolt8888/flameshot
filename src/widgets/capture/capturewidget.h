@@ -227,6 +227,8 @@ private:
     // For start moving after more than X offset
     QPoint m_startMovePos;
     bool m_startMove;
+    // True while the drag handle of the selected object is being dragged
+    bool m_movingDragHandle;
 
     // Grid
     bool m_displayGrid{ false };

@@ -5,6 +5,7 @@
 #include "customiconconfig.h"
 #include "iconstore.h"
 
+#include <QBrush>
 #include <QLineF>
 #include <QPainter>
 #include <QPen>
@@ -14,6 +15,8 @@
 namespace {
 #define PADDING_VALUE 2
 #define THICKNESS_OFFSET 15
+// Side of the square handle drawn on the end of the pointer line.
+#define HANDLE_SIZE 9
 
 // QIcon::pixmap() returns a bitmap scaled by the screen device pixel ratio,
 // its width() is device pixels while drawPixmap() paints in logical pixels.
@@ -86,6 +89,47 @@ QRect CustomIconTool::boundingRect() const
     QRect rect(0, 0, frame_width, frame_height);
     rect.moveCenter(points().first);
     return rect;
+}
+
+QRect CustomIconTool::dragHandleRect() const
+{
+    if (!isValid() || !m_showLeaderLine) {
+        return {};
+    }
+    // The handle sits on the end point, which may be far outside of the icon
+    // rectangle, so that the pointer can be redirected without moving the
+    // icon itself.
+    QRect rect(0, 0, HANDLE_SIZE, HANDLE_SIZE);
+    rect.moveCenter(points().second);
+    return rect;
+}
+
+void CustomIconTool::moveDragHandle(const QPoint& pos)
+{
+    setSecondPoint(pos);
+}
+
+void CustomIconTool::drawObjectSelection(QPainter& painter)
+{
+    drawObjectSelectionRect(painter, boundingRect());
+
+    const QRect handle = dragHandleRect();
+    if (handle.isEmpty()) {
+        return;
+    }
+
+    // Classic drag handle look: white square with a dark outline, filled with
+    // the tool colour so it stays visible on any background.
+    auto orig_pen = painter.pen();
+    auto orig_brush = painter.brush();
+    painter.setPen(QPen(Qt::black, 1));
+    painter.setBrush(Qt::white);
+    painter.drawRect(handle.adjusted(1, 1, -2, -2));
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color());
+    painter.drawRect(handle.center().x() - 1, handle.center().y() - 1, 2, 2);
+    painter.setBrush(orig_brush);
+    painter.setPen(orig_pen);
 }
 
 QString CustomIconTool::name() const

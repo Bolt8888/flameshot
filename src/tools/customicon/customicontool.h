@@ -21,6 +21,9 @@ public:
 
     QRect mousePreviewRect(const CaptureContext& context) const override;
     QRect boundingRect() const override;
+    QRect dragHandleRect() const override;
+    void moveDragHandle(const QPoint& pos) override;
+    void drawObjectSelection(QPainter& painter) override;
 
     CaptureTool* copy(QObject* parent = nullptr) override;
     void process(QPainter& painter, const QPixmap& pixmap) override;

@@ -108,6 +108,13 @@ public:
     };
     virtual QRect boundingRect() const = 0;
 
+    // An optional handle that can be dragged on its own, without moving the
+    // rest of the object, for example the end point of a pointer line.
+    // An empty rectangle means the tool has no handle.
+    virtual QRect dragHandleRect() const { return {}; };
+    // Move the handle returned by dragHandleRect() to the given position.
+    virtual void moveDragHandle(const QPoint& pos) { Q_UNUSED(pos) };
+
     // The icon of the tool.
     // inEditor is true when the icon is requested inside the editor
     // and false otherwise.

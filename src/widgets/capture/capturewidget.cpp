@@ -84,6 +84,7 @@ CaptureWidget::CaptureWidget(const CaptureRequest& req,
   , m_xywhDisplay(false)
   , m_existingObjectIsChanged(false)
   , m_startMove(false)
+  , m_movingDragHandle(false)
   , m_clipboardWorkaroundDone(false)
 
 {
@@ -955,6 +956,19 @@ int CaptureWidget::selectToolItemAtPos(const QPoint& pos)
         if (!toolItem ||
             (toolItem && !toolItem->boundingRect().contains(pos))) {
             activeLayerIndex = m_captureToolObjects.find(pos, size());
+            if (activeLayerIndex == -1) {
+                // A drag handle can sit outside of the object rectangle, so
+                // it needs its own hit test to stay reachable. Topmost first.
+                const auto& items = m_captureToolObjects.captureToolObjects();
+                for (int i = items.size() - 1; i >= 0; --i) {
+                    auto item = items.at(i);
+                    if (!item.isNull() &&
+                        item->dragHandleRect().contains(pos)) {
+                        activeLayerIndex = i;
+                        break;
+                    }
+                }
+            }
             int oldToolSize = m_context.toolSize;
             m_panel->setActiveLayer(activeLayerIndex);
             drawObjectSelection();
@@ -970,6 +984,7 @@ void CaptureWidget::mousePressEvent(QMouseEvent* e)
 {
     activateWindow();
     m_startMove = false;
+    m_movingDragHandle = false;
     m_startMovePos = QPoint();
     m_mousePressedPos = e->pos();
     m_activeToolOffsetToMouseOnStart = QPoint();
@@ -1074,6 +1089,15 @@ void CaptureWidget::mouseMoveEvent(QMouseEvent* e)
             // Check for the minimal offset to start moving an object
             if (m_startMovePos.isNull()) {
                 m_startMovePos = e->pos();
+                // A drag that starts on the handle of the object moves that
+                // handle alone, the object itself stays where it is.
+                QPointer<CaptureTool> pressedTool =
+                  m_captureToolObjects.at(m_panel->activeLayerIndex());
+                QRect handle;
+                if (!pressedTool.isNull()) {
+                    handle = pressedTool->dragHandleRect();
+                }
+                m_movingDragHandle = handle.contains(m_startMovePos);
             }
             if ((e->pos() - m_startMovePos).manhattanLength() >
                 MOUSE_DISTANCE_TO_START_MOVING) {
@@ -1083,6 +1107,27 @@ void CaptureWidget::mouseMoveEvent(QMouseEvent* e)
         if (m_startMove) {
             QPointer<CaptureTool> activeTool =
               m_captureToolObjects.at(m_panel->activeLayerIndex());
+            if (m_movingDragHandle) {
+                // Drag the handle only, the anchor point of the object is
+                // left untouched so the icon does not move with it.
+                if (!m_activeToolIsMoved) {
+                    // save state before the drag for undo stack
+                    m_captureToolObjectsBackup = m_captureToolObjects;
+                }
+                m_activeToolIsMoved = true;
+                const QRect dirtyBefore = activeTool->boundingRect().united(
+                  activeTool->dragHandleRect());
+                activeTool->moveDragHandle(m_displayGrid ? snapToGrid(e->pos())
+                                                         : e->pos());
+                drawToolsData();
+                // The handle may sit outside of the object rectangle, so both
+                // the old and the new handle area have to be repainted.
+                update(paddedUpdateRect(
+                  dirtyBefore.united(activeTool->dragHandleRect())));
+                updateCursor();
+                setCursor(Qt::CrossCursor);
+                return;
+            }
             if (m_activeToolOffsetToMouseOnStart.isNull()) {
                 setCursor(Qt::ClosedHandCursor);
                 m_activeToolOffsetToMouseOnStart =
@@ -1156,6 +1201,7 @@ void CaptureWidget::mouseReleaseEvent(QMouseEvent* e)
     }
     m_mouseIsClicked = false;
     m_activeToolIsMoved = false;
+    m_movingDragHandle = false;
 
     updateSelectionState();
     updateCursor();

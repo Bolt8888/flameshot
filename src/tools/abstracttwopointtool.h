@@ -39,6 +39,9 @@ private:
 protected:
     void copyParams(const AbstractTwoPointTool* from, AbstractTwoPointTool* to);
     void setPadding(int padding) { m_padding = padding; };
+    // Move the end point only, used by tools that drag a single handle
+    // while the anchor point stays where it is.
+    void setSecondPoint(const QPoint& p) { m_points.second = p; };
 
 private:
     // class members
