@@ -6,7 +6,6 @@
 #include "iconstore.h"
 
 #include <QPainter>
-#include <QPainterPath>
 #include <QPixmap>
 
 namespace {
@@ -16,7 +15,6 @@ namespace {
 
 CustomIconTool::CustomIconTool(QObject* parent)
   : AbstractTwoPointTool(parent)
-  , m_showLeaderLine(true)
   , m_valid(false)
 {}
 
@@ -54,30 +52,21 @@ QRect CustomIconTool::boundingRect() const
     if (!isValid()) {
         return {};
     }
-    // The pixmap is drawn centered on the anchor point, so the frame must
-    // hug the real rendered size instead of a square twice as big.
+    // The pixmap is drawn centered on the anchor point, so the frame must hug
+    // the real rendered size instead of a square twice as big. No leader line
+    // is drawn, so the second point never widens the frame.
     int icon_size = qMax(8, size() + THICKNESS_OFFSET);
     QPixmap pixmap = IconStore::instance().pixmap(m_iconName, icon_size);
-    int half_width = icon_size / 2 + PADDING_VALUE;
-    int half_height = icon_size / 2 + PADDING_VALUE;
+    int frame_width = icon_size + PADDING_VALUE * 2;
+    int frame_height = frame_width;
     if (!pixmap.isNull()) {
-        half_width = pixmap.width() / 2 + PADDING_VALUE;
-        half_height = pixmap.height() / 2 + PADDING_VALUE;
+        frame_width = pixmap.width() + PADDING_VALUE * 2;
+        frame_height = pixmap.height() + PADDING_VALUE * 2;
     }
 
-    int line_pos_min_x =
-      qMin(points().first.x() - half_width, points().second.x());
-    int line_pos_min_y =
-      qMin(points().first.y() - half_height, points().second.y());
-    int line_pos_max_x =
-      qMax(points().first.x() + half_width, points().second.x());
-    int line_pos_max_y =
-      qMax(points().first.y() + half_height, points().second.y());
-
-    return { line_pos_min_x,
-             line_pos_min_y,
-             line_pos_max_x - line_pos_min_x,
-             line_pos_max_y - line_pos_min_y };
+    QRect rect(0, 0, frame_width, frame_height);
+    rect.moveCenter(points().first);
+    return rect;
 }
 
 QString CustomIconTool::name() const
@@ -94,7 +83,6 @@ void CustomIconTool::copyParams(const CustomIconTool* from, CustomIconTool* to)
 {
     AbstractTwoPointTool::copyParams(from, to);
     to->m_iconName = from->m_iconName;
-    to->m_showLeaderLine = from->m_showLeaderLine;
     to->m_valid = from->m_valid;
 }
 
@@ -114,26 +102,16 @@ QWidget* CustomIconTool::configurationWidget()
 {
     auto* confW = new CustomIconConfig();
     confW->setIconName(m_iconName);
-    confW->setLeaderLineChecked(m_showLeaderLine);
     connect(confW,
             &CustomIconConfig::iconSelected,
             this,
             &CustomIconTool::setIconName);
-    connect(confW,
-            &CustomIconConfig::leaderLineToggled,
-            this,
-            &CustomIconTool::setLeaderLineEnabled);
     return confW;
 }
 
 void CustomIconTool::setIconName(const QString& iconName)
 {
     m_iconName = iconName;
-}
-
-void CustomIconTool::setLeaderLineEnabled(bool enabled)
-{
-    m_showLeaderLine = enabled;
 }
 
 void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
@@ -149,43 +127,11 @@ void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
         return;
     }
 
-    // save current pen and brush state
-    auto orig_pen = painter.pen();
-    auto orig_brush = painter.brush();
-
-    QLineF line(points().first, points().second);
-    int half = icon_size / 2;
-    // if the mouse is outside of the icon, draw the pointer line
-    if (m_showLeaderLine && line.length() > half) {
-        painter.setPen(QPen(color(), 0));
-        painter.setBrush(color());
-
-        int middleX = points().first.x();
-        int middleY = points().first.y();
-
-        QLineF normal = line.normalVector();
-        normal.setLength(half);
-        QPoint p1 = normal.p2().toPoint();
-        QPoint p2(middleX - (p1.x() - middleX), middleY - (p1.y() - middleY));
-
-        QPainterPath path;
-        path.moveTo(points().first);
-        path.lineTo(p1);
-        path.lineTo(points().second);
-        path.lineTo(p2);
-        path.lineTo(points().first);
-        painter.drawPath(path);
-    }
-
     // Keep the pixmap aspect ratio and center it on the anchor point, wide
     // stickers must not be stretched into a square.
     painter.drawPixmap(points().first.x() - iconPixmap.width() / 2,
                        points().first.y() - iconPixmap.height() / 2,
                        iconPixmap);
-
-    // restore original brush and pen
-    painter.setBrush(orig_brush);
-    painter.setPen(orig_pen);
 }
 
 void CustomIconTool::paintMousePreview(QPainter& painter,

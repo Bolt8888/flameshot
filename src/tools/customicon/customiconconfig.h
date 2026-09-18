@@ -5,7 +5,6 @@
 
 #include <QWidget>
 
-class QCheckBox;
 class QPushButton;
 class QTabWidget;
 class QVBoxLayout;
@@ -17,11 +16,9 @@ public:
     explicit CustomIconConfig(QWidget* parent = nullptr);
 
     void setIconName(const QString& iconName);
-    void setLeaderLineChecked(bool checked);
 
 signals:
     void iconSelected(const QString& iconName);
-    void leaderLineToggled(bool enabled);
 
 private slots:
     void refreshIcons();
@@ -33,7 +30,6 @@ private:
 
     QVBoxLayout* m_layout;
     QTabWidget* m_tabs;
-    QCheckBox* m_leaderLineCB;
     QPushButton* m_refreshButton;
     QString m_currentIcon;
 };
