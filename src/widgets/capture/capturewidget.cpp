@@ -34,6 +34,7 @@
 #include <QDateTime>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -816,8 +817,8 @@ void CaptureWidget::showColorPicker(const QPoint& pos)
     m_colorPicker->show();
 }
 
-// Right clicking a custom number pops a small panel with the numbers 1 to 10
-// plus a free input, the same way the color picker is opened.
+// Double clicking a custom number pops a small panel with the numbers 1 to 10
+// plus a free input, right next to the cursor.
 bool CaptureWidget::showNumberPicker(const QPoint& pos)
 {
     QPointer<CaptureTool> toolItem = activeToolObject();
@@ -881,7 +882,19 @@ bool CaptureWidget::showNumberPicker(const QPoint& pos)
     connect(okButton, &QPushButton::clicked, popup, commit);
     connect(edit, &QLineEdit::returnPressed, popup, commit);
 
-    popup->move(mapToGlobal(pos));
+    popup->adjustSize();
+    QPoint topLeft = mapToGlobal(pos);
+    QScreen* screen = QGuiApplication::screenAt(topLeft);
+    if (screen != nullptr) {
+        const QRect available = screen->availableGeometry();
+        if (topLeft.x() + popup->width() > available.right()) {
+            topLeft.setX(available.right() - popup->width());
+        }
+        if (topLeft.y() + popup->height() > available.bottom()) {
+            topLeft.setY(available.bottom() - popup->height());
+        }
+    }
+    popup->move(topLeft);
     popup->show();
     edit->setFocus();
     return true;
@@ -972,9 +985,6 @@ void CaptureWidget::mousePressEvent(QMouseEvent* e)
         if (m_activeTool && m_activeTool->editMode()) {
             return;
         }
-        if (showNumberPicker(m_mousePressedPos)) {
-            return;
-        }
         showColorPicker(m_mousePressedPos);
         return;
     } else if (e->button() == Qt::LeftButton) {
@@ -1008,8 +1018,11 @@ void CaptureWidget::mouseDoubleClickEvent(QMouseEvent* event)
         // Start object editing
         auto activeTool = m_captureToolObjects.at(activeLayerIndex);
         if (activeTool &&
-            (activeTool->type() == CaptureTool::TYPE_TEXT ||
-             activeTool->type() == CaptureTool::TYPE_CUSTOMNUMBER)) {
+            activeTool->type() == CaptureTool::TYPE_CUSTOMNUMBER) {
+            // A number is edited in place, the right button stays reserved
+            // for the color picker.
+            showNumberPicker(event->pos());
+        } else if (activeTool && activeTool->type() == CaptureTool::TYPE_TEXT) {
             m_activeTool = activeTool;
             m_mouseIsClicked = false;
             m_context.mousePos = *m_activeTool->pos();
