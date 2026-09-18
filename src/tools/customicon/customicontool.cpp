@@ -43,7 +43,7 @@ bool CustomIconTool::isValid() const
 
 QRect CustomIconTool::mousePreviewRect(const CaptureContext& context) const
 {
-    int width = (context.toolSize + THICKNESS_OFFSET) * 2;
+    int width = qMax(8, context.toolSize + THICKNESS_OFFSET);
     QRect rect(0, 0, width, width);
     rect.moveCenter(context.mousePos);
     return rect;
@@ -54,16 +54,25 @@ QRect CustomIconTool::boundingRect() const
     if (!isValid()) {
         return {};
     }
-    int bubble_size = size() + THICKNESS_OFFSET + PADDING_VALUE;
+    // The pixmap is drawn centered on the anchor point, so the frame must
+    // hug the real rendered size instead of a square twice as big.
+    int icon_size = qMax(8, size() + THICKNESS_OFFSET);
+    QPixmap pixmap = IconStore::instance().pixmap(m_iconName, icon_size);
+    int half_width = icon_size / 2 + PADDING_VALUE;
+    int half_height = icon_size / 2 + PADDING_VALUE;
+    if (!pixmap.isNull()) {
+        half_width = pixmap.width() / 2 + PADDING_VALUE;
+        half_height = pixmap.height() / 2 + PADDING_VALUE;
+    }
 
     int line_pos_min_x =
-      qMin(points().first.x() - bubble_size, points().second.x());
+      qMin(points().first.x() - half_width, points().second.x());
     int line_pos_min_y =
-      qMin(points().first.y() - bubble_size, points().second.y());
+      qMin(points().first.y() - half_height, points().second.y());
     int line_pos_max_x =
-      qMax(points().first.x() + bubble_size, points().second.x());
+      qMax(points().first.x() + half_width, points().second.x());
     int line_pos_max_y =
-      qMax(points().first.y() + bubble_size, points().second.y());
+      qMax(points().first.y() + half_height, points().second.y());
 
     return { line_pos_min_x,
              line_pos_min_y,
@@ -188,7 +197,7 @@ void CustomIconTool::paintMousePreview(QPainter& painter,
     auto orig_opacity = painter.opacity();
     painter.setOpacity(0.35);
     painter.setPen(QPen(context.color,
-                        (size() + THICKNESS_OFFSET) * 2,
+                        qMax(8, size() + THICKNESS_OFFSET),
                         Qt::SolidLine,
                         Qt::RoundCap));
     painter.drawLine(context.mousePos,
