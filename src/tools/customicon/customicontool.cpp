@@ -5,7 +5,9 @@
 #include "customiconconfig.h"
 #include "iconstore.h"
 
+#include <QLineF>
 #include <QPainter>
+#include <QPen>
 #include <QPixmap>
 
 namespace {
@@ -15,6 +17,7 @@ namespace {
 
 CustomIconTool::CustomIconTool(QObject* parent)
   : AbstractTwoPointTool(parent)
+  , m_showLeaderLine(true)
   , m_valid(false)
 {}
 
@@ -53,8 +56,9 @@ QRect CustomIconTool::boundingRect() const
         return {};
     }
     // The pixmap is drawn centered on the anchor point, so the frame must hug
-    // the real rendered size instead of a square twice as big. No leader line
-    // is drawn, so the second point never widens the frame.
+    // the real rendered size instead of a square twice as big. The pointer
+    // line is decoration only, the drag end point is deliberately left out so
+    // the frame stays the size of the icon however far it was dragged.
     int icon_size = qMax(8, size() + THICKNESS_OFFSET);
     QPixmap pixmap = IconStore::instance().pixmap(m_iconName, icon_size);
     int frame_width = icon_size + PADDING_VALUE * 2;
@@ -83,6 +87,7 @@ void CustomIconTool::copyParams(const CustomIconTool* from, CustomIconTool* to)
 {
     AbstractTwoPointTool::copyParams(from, to);
     to->m_iconName = from->m_iconName;
+    to->m_showLeaderLine = from->m_showLeaderLine;
     to->m_valid = from->m_valid;
 }
 
@@ -102,16 +107,26 @@ QWidget* CustomIconTool::configurationWidget()
 {
     auto* confW = new CustomIconConfig();
     confW->setIconName(m_iconName);
+    confW->setLeaderLineChecked(m_showLeaderLine);
     connect(confW,
             &CustomIconConfig::iconSelected,
             this,
             &CustomIconTool::setIconName);
+    connect(confW,
+            &CustomIconConfig::leaderLineToggled,
+            this,
+            &CustomIconTool::setLeaderLineEnabled);
     return confW;
 }
 
 void CustomIconTool::setIconName(const QString& iconName)
 {
     m_iconName = iconName;
+}
+
+void CustomIconTool::setLeaderLineEnabled(bool enabled)
+{
+    m_showLeaderLine = enabled;
 }
 
 void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
@@ -127,11 +142,35 @@ void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
         return;
     }
 
+    // save current pen and brush state
+    auto orig_pen = painter.pen();
+    auto orig_brush = painter.brush();
+
+    // The pointer line starts on the edge of the icon instead of its centre
+    // so the sticker itself stays readable.
+    const QLineF line(points().first, points().second);
+    const double gap = qMin(iconPixmap.width(), iconPixmap.height()) / 2.0;
+    if (m_showLeaderLine && line.length() > gap) {
+        const int line_width = qMax(1, size() / 3);
+        QLineF trimmed = line;
+        trimmed.setP1(line.pointAt(gap / line.length()));
+
+        painter.setPen(QPen(color(), line_width, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(trimmed);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(color());
+        painter.drawEllipse(points().second, line_width + 1, line_width + 1);
+    }
+
     // Keep the pixmap aspect ratio and center it on the anchor point, wide
     // stickers must not be stretched into a square.
     painter.drawPixmap(points().first.x() - iconPixmap.width() / 2,
                        points().first.y() - iconPixmap.height() / 2,
                        iconPixmap);
+
+    // restore original brush and pen
+    painter.setBrush(orig_brush);
+    painter.setPen(orig_pen);
 }
 
 void CustomIconTool::paintMousePreview(QPainter& painter,

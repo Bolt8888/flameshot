@@ -30,6 +30,7 @@ public:
     QWidget* configurationWidget() override;
 
     QString iconName() const { return m_iconName; }
+    bool leaderLineEnabled() const { return m_showLeaderLine; }
 
 protected:
     CaptureTool::Type type() const override;
@@ -39,9 +40,11 @@ public slots:
     void drawStart(const CaptureContext& context) override;
     void pressed(CaptureContext& context) override;
     void setIconName(const QString& iconName);
+    void setLeaderLineEnabled(bool enabled);
 
 private:
     QString m_tempString;
     QString m_iconName;
+    bool m_showLeaderLine;
     bool m_valid;
 };

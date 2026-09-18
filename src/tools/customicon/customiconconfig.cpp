@@ -4,6 +4,7 @@
 #include "customiconconfig.h"
 #include "iconstore.h"
 
+#include <QCheckBox>
 #include <QFrame>
 #include <QGridLayout>
 #include <QIcon>
@@ -12,6 +13,7 @@
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QSize>
 #include <QTabWidget>
 #include <QToolButton>
@@ -26,6 +28,7 @@ CustomIconConfig::CustomIconConfig(QWidget* parent)
   : QWidget(parent)
   , m_layout(new QVBoxLayout(this))
   , m_tabs(new QTabWidget(this))
+  , m_leaderLineCB(nullptr)
   , m_refreshButton(nullptr)
 {
     // Every folder of "custom_icons" becomes one tab, listed on the left so
@@ -40,8 +43,17 @@ CustomIconConfig::CustomIconConfig(QWidget* parent)
             this,
             &CustomIconConfig::refreshIcons);
 
+    m_leaderLineCB = new QCheckBox(tr("Pointer line"));
+    m_leaderLineCB->setToolTip(
+      tr("Draw a line with a dot from the icon to the cursor"));
+    connect(m_leaderLineCB,
+            &QCheckBox::toggled,
+            this,
+            &CustomIconConfig::leaderLineToggled);
+
     m_layout->addWidget(m_tabs, 1);
     m_layout->addWidget(m_refreshButton);
+    m_layout->addWidget(m_leaderLineCB);
 
     rebuildTabs();
 }
@@ -136,4 +148,10 @@ void CustomIconConfig::selectIcon(const QString& iconName)
 void CustomIconConfig::setIconName(const QString& iconName)
 {
     m_currentIcon = iconName;
+}
+
+void CustomIconConfig::setLeaderLineChecked(bool checked)
+{
+    QSignalBlocker blocker(m_leaderLineCB);
+    m_leaderLineCB->setChecked(checked);
 }
