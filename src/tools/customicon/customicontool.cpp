@@ -9,10 +9,24 @@
 #include <QPainter>
 #include <QPen>
 #include <QPixmap>
+#include <QSize>
 
 namespace {
 #define PADDING_VALUE 2
 #define THICKNESS_OFFSET 15
+
+// QIcon::pixmap() returns a bitmap scaled by the screen device pixel ratio,
+// its width() is device pixels while drawPixmap() paints in logical pixels.
+// Everything that positions or frames the icon must use the logical size.
+QSize pixmapLogicalSize(const QPixmap& pixmap)
+{
+    const qreal ratio = pixmap.devicePixelRatio();
+    if (ratio <= 0.0) {
+        return pixmap.size();
+    }
+    return QSize(qRound(pixmap.width() / ratio),
+                 qRound(pixmap.height() / ratio));
+}
 }
 
 CustomIconTool::CustomIconTool(QObject* parent)
@@ -64,8 +78,9 @@ QRect CustomIconTool::boundingRect() const
     int frame_width = icon_size + PADDING_VALUE * 2;
     int frame_height = frame_width;
     if (!pixmap.isNull()) {
-        frame_width = pixmap.width() + PADDING_VALUE * 2;
-        frame_height = pixmap.height() + PADDING_VALUE * 2;
+        const QSize logical = pixmapLogicalSize(pixmap);
+        frame_width = logical.width() + PADDING_VALUE * 2;
+        frame_height = logical.height() + PADDING_VALUE * 2;
     }
 
     QRect rect(0, 0, frame_width, frame_height);
@@ -146,26 +161,29 @@ void CustomIconTool::process(QPainter& painter, const QPixmap& pixmap)
     auto orig_pen = painter.pen();
     auto orig_brush = painter.brush();
 
+    const QSize logical = pixmapLogicalSize(iconPixmap);
+
     // The pointer line starts on the edge of the icon instead of its centre
-    // so the sticker itself stays readable.
+    // so the sticker itself stays readable. It is always hairline thin and
+    // does not follow the tool size.
     const QLineF line(points().first, points().second);
-    const double gap = qMin(iconPixmap.width(), iconPixmap.height()) / 2.0;
+    const double gap = qMin(logical.width(), logical.height()) / 2.0;
     if (m_showLeaderLine && line.length() > gap) {
-        const int line_width = qMax(1, size() / 3);
         QLineF trimmed = line;
         trimmed.setP1(line.pointAt(gap / line.length()));
 
-        painter.setPen(QPen(color(), line_width, Qt::SolidLine, Qt::RoundCap));
+        painter.setPen(QPen(color(), 1, Qt::SolidLine, Qt::RoundCap));
         painter.drawLine(trimmed);
         painter.setPen(Qt::NoPen);
         painter.setBrush(color());
-        painter.drawEllipse(points().second, line_width + 1, line_width + 1);
+        painter.drawEllipse(points().second, 2.0, 2.0);
     }
 
     // Keep the pixmap aspect ratio and center it on the anchor point, wide
-    // stickers must not be stretched into a square.
-    painter.drawPixmap(points().first.x() - iconPixmap.width() / 2,
-                       points().first.y() - iconPixmap.height() / 2,
+    // stickers must not be stretched into a square. The offsets must be the
+    // logical size or the sticker drifts down-right on scaled displays.
+    painter.drawPixmap(points().first.x() - logical.width() / 2,
+                       points().first.y() - logical.height() / 2,
                        iconPixmap);
 
     // restore original brush and pen
