@@ -24,6 +24,7 @@
 #include "widgets/capture/modificationcommand.h"
 #include "widgets/capture/notifierbox.h"
 #include "widgets/capture/overlaymessage.h"
+#include "widgets/capture/windowdetector.h"
 #include "widgets/draggablewidgetmaker.h"
 #include "widgets/orientablepushbutton.h"
 #include "widgets/panel/sidepanelwidget.h"
@@ -51,6 +52,22 @@
 #endif
 
 #define MOUSE_DISTANCE_TO_START_MOVING 3
+
+namespace {
+
+// Maps a physical-pixel screen rectangle into this widget's logical
+// coordinates. The capture widget covers a single screen, so one device
+// pixel ratio is enough; rounding can drift by a pixel on mixed-DPI
+// multi-monitor setups, which is acceptable for a window-sized selection.
+QRect physicalRectToWidget(const QRect& rect, qreal dpr, const QWidget* widget)
+{
+    const QPoint topLeft = widget->mapFromGlobal(
+      QPoint(qRound(rect.left() / dpr), qRound(rect.top() / dpr)));
+    return QRect(
+      topLeft, QSize(qRound(rect.width() / dpr), qRound(rect.height() / dpr)));
+}
+
+} // namespace
 
 // CaptureWidget is the main component used to capture the screen. It contains
 // an area of selection with its respective buttons.
@@ -784,6 +801,18 @@ void CaptureWidget::paintEvent(QPaintEvent* paintEvent)
     // draw inactive region
     drawInactiveRegion(&painter);
 
+    // Window pre-selection outline, drawn above the dimmed inactive region.
+    if (!m_windowHintRect.isNull() && !m_mouseIsClicked) {
+        painter.save();
+        const QColor ui = ConfigHandler().uiColor();
+        painter.setPen(QPen(ui, 1, Qt::DashLine));
+        QColor fill = ui;
+        fill.setAlpha(30);
+        painter.setBrush(fill);
+        painter.drawRect(m_windowHintRect);
+        painter.restore();
+    }
+
     if (!isActiveWindow()) {
         drawErrorMessage(
           tr("Flameshot has lost focus. Keyboard shortcuts won't "
@@ -1077,6 +1106,7 @@ void CaptureWidget::mouseMoveEvent(QMouseEvent* e)
 
     m_context.mousePos = e->pos();
     if (e->buttons() != Qt::LeftButton) {
+        updateWindowHint(e->pos());
         updateTool(activeButtonTool());
         updateCursor();
         return;
@@ -1196,6 +1226,21 @@ void CaptureWidget::mouseReleaseEvent(QMouseEvent* e)
             if (m_activeToolIsMoved) {
                 m_activeToolIsMoved = false;
                 pushObjectsStateToUndoStack();
+            } else if (!m_windowHintRect.isNull() &&
+                       (e->pos() - m_mousePressedPos).manhattanLength() <=
+                         MOUSE_DISTANCE_TO_START_MOVING &&
+                       m_panel->activeLayerIndex() == -1 &&
+                       activeButtonToolType() == CaptureTool::NONE) {
+                // A plain click accepts the hovered window as the selection.
+                m_selection->setGeometry(m_windowHintRect);
+                m_selection->show();
+                emit m_selection->geometrySettled();
+                update(paddedUpdateRect(m_windowHintRect));
+                m_windowHintRect = QRect();
+            } else if (!m_windowHintRect.isNull()) {
+                // The click turned into a drag, the hint is stale now.
+                update(paddedUpdateRect(m_windowHintRect));
+                m_windowHintRect = QRect();
             }
         }
     }
@@ -1205,6 +1250,42 @@ void CaptureWidget::mouseReleaseEvent(QMouseEvent* e)
 
     updateSelectionState();
     updateCursor();
+}
+
+/**
+ * Updates the hovered-window pre-selection. The hint is only offered while
+ * the capture is idle, anything else (active tool, selected object, color
+ * picker, buttons under the cursor) clears it. Moving the mouse without a
+ * pressed button keeps the hint in sync with the window under the cursor.
+ */
+void CaptureWidget::updateWindowHint(const QPoint& pos)
+{
+    const bool idle =
+      !m_mouseIsClicked && m_activeTool.isNull() &&
+      m_panel->activeLayerIndex() == -1 &&
+      activeButtonToolType() == CaptureTool::NONE &&
+      !m_colorPicker->isVisible() && !m_buttonHandler->contains(pos) &&
+      !(m_panel->isVisible() && m_panel->geometry().contains(pos)) &&
+      !(m_selection->isVisible() &&
+        m_selection->getMouseSide(pos) != SelectionWidget::NO_SIDE);
+    QRect hint;
+    if (idle) {
+        const qreal dpr = devicePixelRatioF();
+        const QPointF global = mapToGlobal(pos);
+        const QPoint physicalPos(qRound(global.x() * dpr),
+                                 qRound(global.y() * dpr));
+        const QRect physical = m_windowDetector.windowRectAt(physicalPos);
+        if (!physical.isNull()) {
+            hint = physicalRectToWidget(physical, dpr, this);
+        }
+    }
+    if (hint == m_windowHintRect) {
+        return;
+    }
+    const QRect dirty =
+      m_windowHintRect.isNull() ? hint : m_windowHintRect.united(hint);
+    m_windowHintRect = hint;
+    update(paddedUpdateRect(dirty));
 }
 
 /**

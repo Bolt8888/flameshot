@@ -10,6 +10,7 @@ target_sources(
         overlaymessage.h
         selectionwidget.h
         magnifierwidget.h
+        windowdetector.h
         notifierbox.h
         modificationcommand.h)
 
@@ -25,4 +26,5 @@ target_sources(
         notifierbox.cpp
         selectionwidget.cpp
         magnifierwidget.cpp
+        windowdetector.cpp
         modificationcommand.cpp)

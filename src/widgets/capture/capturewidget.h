@@ -19,6 +19,7 @@
 #include "widgets/capture/capturetoolobjects.h"
 #include "widgets/capture/magnifierwidget.h"
 #include "widgets/capture/selectionwidget.h"
+#include "widgets/capture/windowdetector.h"
 
 #include <QMessageBox>
 #include <QPointer>
@@ -159,6 +160,10 @@ private:
 
     QPoint snapToGrid(const QPoint& point) const;
 
+    // Window pre-selection: on hover the topmost window under the cursor is
+    // outlined, a plain click then uses its rectangle as the selection.
+    void updateWindowHint(const QPoint& pos);
+
     ////////////////////////////////////////
     // Class members
 
@@ -215,6 +220,11 @@ private:
 
     QPoint m_mousePressedPos;
     QPoint m_activeToolOffsetToMouseOnStart;
+
+    WindowDetector m_windowDetector;
+    // Current hover window pre-selection in widget coordinates, null when
+    // no window is hovered or the state does not allow one.
+    QRect m_windowHintRect;
 
     // XYWH display position and timer
     bool m_xywhDisplay;
