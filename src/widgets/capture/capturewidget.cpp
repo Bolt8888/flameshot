@@ -1241,8 +1241,17 @@ void CaptureWidget::mouseReleaseEvent(QMouseEvent* e)
                        m_panel->activeLayerIndex() == -1 &&
                        activeButtonToolType() == CaptureTool::NONE) {
                 // A plain click accepts the hovered window as the selection.
+                // setGeometry only emits geometryChanged when already
+                // visible, so the capture context must be updated here the
+                // same way initSelection does it, or copy/save would fall
+                // back to the full screen.
                 m_selection->setGeometry(m_windowHintRect);
                 m_selection->show();
+                m_context.selection =
+                  extendedRect(m_selection->geometry().intersected(rect()));
+                updateCursor();
+                updateSizeIndicator();
+                OverlayMessage::pop();
                 emit m_selection->geometrySettled();
                 update(paddedUpdateRect(m_windowHintRect));
                 m_windowHintRect = QRect();
