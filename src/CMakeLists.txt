@@ -216,8 +216,9 @@ if (USE_WAYLAND_CLIPBOARD)
 endif()
 
 if (WIN32)
-  # WindowDetector reads the exact window bounds via DWM.
-  target_link_libraries(flameshot dwmapi)
+  # WindowDetector reads the exact window bounds via DWM and refines the
+  # hover hit to the UI element under the cursor via MSAA.
+  target_link_libraries(flameshot dwmapi oleacc ole32)
 endif()
 
 if (APPLE)

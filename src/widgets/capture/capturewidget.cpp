@@ -1274,7 +1274,7 @@ void CaptureWidget::updateWindowHint(const QPoint& pos)
         const QPointF global = mapToGlobal(pos);
         const QPoint physicalPos(qRound(global.x() * dpr),
                                  qRound(global.y() * dpr));
-        const QRect physical = m_windowDetector.windowRectAt(physicalPos);
+        const QRect physical = m_windowDetector.hitRectAt(physicalPos);
         if (!physical.isNull()) {
             hint = physicalRectToWidget(physical, dpr, this);
         }
