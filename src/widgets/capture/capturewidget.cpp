@@ -802,8 +802,17 @@ void CaptureWidget::paintEvent(QPaintEvent* paintEvent)
     drawInactiveRegion(&painter);
 
     // Window pre-selection outline, drawn above the dimmed inactive region.
+    // The original, undimmed screenshot is restored inside the hint so the
+    // hovered window or element clearly stands out from the grey overlay.
     if (!m_windowHintRect.isNull() && !m_mouseIsClicked) {
         painter.save();
+        const qreal hintDpr = m_context.screenshot.devicePixelRatio();
+        painter.drawPixmap(QRectF(m_windowHintRect),
+                           m_context.screenshot,
+                           QRectF(m_windowHintRect.left() * hintDpr,
+                                  m_windowHintRect.top() * hintDpr,
+                                  m_windowHintRect.width() * hintDpr,
+                                  m_windowHintRect.height() * hintDpr));
         const QColor ui = ConfigHandler().uiColor();
         painter.setPen(QPen(ui, 1, Qt::DashLine));
         QColor fill = ui;
